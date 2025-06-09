@@ -17,6 +17,7 @@ declare module "next-auth" {
       posts?: any[];
       followersCount?: number;
       followingCount?: number;
+      jwtToken?: string;
     } & DefaultSession["user"];
   }
 }
@@ -26,11 +27,12 @@ declare module "next-auth/jwt" {
     backendUser?: {
       userId: string;
       username: string;
+      email: string;
       posts?: any[];
       followersCount?: number;
       followingCount?: number;
     };
-    accessToken?: string;
+    jwtToken?: string;
   }
 }
 
@@ -63,7 +65,6 @@ export default NextAuth({
             image: user.image,
           });
 
-          // Send user data to Express backend
           const response = await axios.post(
             `${BACKEND_URL}/auth/signin-google`,
             {
@@ -73,7 +74,7 @@ export default NextAuth({
               image: user.image,
             },
             {
-              timeout: 10000, // 10 second timeout
+              timeout: 10000,
               headers: {
                 "Content-Type": "application/json",
               },
@@ -83,7 +84,6 @@ export default NextAuth({
           console.log("Backend response:", response.data);
 
           if (response.data.success && response.data.user) {
-            // Store backend user data
             user.backendUser = response.data.user;
             return true;
           } else {
@@ -107,62 +107,82 @@ export default NextAuth({
     },
 
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (account && user) {
         console.log("JWT callback - initial sign in", {
           user: user.backendUser,
         });
         token.backendUser = user.backendUser;
 
-        // Generate JWT token from backend for future API calls
+        // Generate JWT token from Express backend after successful Google login
         if (user.backendUser) {
           try {
-            const tokenResponse = await axios.post(
-              `${BACKEND_URL}/auth/verify-token`,
+            // Create a session in Express backend to get JWT token
+            const sessionResponse = await axios.post(
+              `${BACKEND_URL}/auth/create-session`,
               {
-                token: JSON.stringify(user.backendUser), // Send user data instead of token for now
+                userId: user.backendUser.userId,
+                email: user.backendUser.email,
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                },
               }
             );
 
-            if (tokenResponse.data.valid) {
-              token.accessToken = JSON.stringify(user.backendUser);
-              // Ensure posts are included in the token
-              token.backendUser = {
-                ...tokenResponse.data.user,
-                posts: tokenResponse.data.user.posts || [],
-              };
+            if (sessionResponse.data.success && sessionResponse.data.token) {
+              token.jwtToken = sessionResponse.data.token;
+              console.log("JWT token generated and stored in NextAuth session");
             }
           } catch (error) {
-            console.error("Error generating backend token:", error);
+            console.error("Error generating JWT token:", error);
           }
         }
       }
 
-      // Return previous token if it exists and is valid
-      if (token.backendUser) {
-        return token;
-      }
-
-      // Try to refresh the token if needed
-      if (token.accessToken) {
+      // Verify and refresh JWT token if needed
+      if (token.jwtToken) {
         try {
-          const response = await axios.post(
+          const verifyResponse = await axios.post(
             `${BACKEND_URL}/auth/verify-token`,
             {
-              token: token.accessToken,
+              token: token.jwtToken,
             }
           );
 
-          if (response.data.valid) {
+          if (verifyResponse.data.valid) {
             token.backendUser = {
-              ...response.data.user,
-              posts: response.data.user.posts || [],
+              ...verifyResponse.data.user,
+              posts: verifyResponse.data.user.posts || [],
             };
+          } else {
+            // Token expired, try to refresh
+            if (token.backendUser) {
+              try {
+                const refreshResponse = await axios.post(
+                  `${BACKEND_URL}/auth/create-session`,
+                  {
+                    userId: token.backendUser.userId,
+                    email: token.backendUser.email,
+                  }
+                );
+
+                if (
+                  refreshResponse.data.success &&
+                  refreshResponse.data.token
+                ) {
+                  token.jwtToken = refreshResponse.data.token;
+                }
+              } catch (refreshError) {
+                console.error("Error refreshing JWT token:", refreshError);
+                delete token.jwtToken;
+                delete token.backendUser;
+              }
+            }
           }
         } catch (error) {
-          console.error("Error refreshing token:", error);
-          // Clear invalid token
-          delete token.accessToken;
+          console.error("Error verifying JWT token:", error);
+          delete token.jwtToken;
           delete token.backendUser;
         }
       }
@@ -171,9 +191,11 @@ export default NextAuth({
     },
 
     async session({ session, token }) {
-      console.log("Session callback", { token: token.backendUser });
+      console.log("Session callback", {
+        token: token.backendUser,
+        jwtToken: token.jwtToken ? "present" : "missing",
+      });
 
-      // Send properties to the client
       if (token.backendUser && session.user) {
         session.user.id = token.backendUser.userId;
         session.user.username = token.backendUser.username;
@@ -181,6 +203,7 @@ export default NextAuth({
         session.user.posts = token.backendUser.posts || [];
         session.user.followersCount = token.backendUser.followersCount || 0;
         session.user.followingCount = token.backendUser.followingCount || 0;
+        session.user.jwtToken = token.jwtToken;
       }
       return session;
     },
