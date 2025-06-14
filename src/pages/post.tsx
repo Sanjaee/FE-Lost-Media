@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,7 +166,7 @@ const PostCard: React.FC<{
       <div className="p-6">
         <div className="flex items-center mb-4">
           {post.author?.profilePic && (
-            <img
+            <Image width={40} height={40}
               src={post.author.profilePic}
               alt={post.author.username}
               className="w-8 h-8 rounded-full mr-3"

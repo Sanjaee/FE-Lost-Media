@@ -85,12 +85,50 @@
   }
 } */
 
-/* body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-} */
+body {
+  font-family: Roboto, Arial;
+}
 
+.owner {
+  color: #f90;
+  font-weight: 900;
+  background-image: url("/god.gif");
+  background-color: black;
+  line-height: 16px;
+}
+.rf_owner::before {
+  content: "[Owner] ";
+  color: #a50000;
+  font-weight: 800;
+  font-family: Roboto, Arial;
+  font-size: 15px;
+}
+.rf_god {
+  color: #f1c40f;
+  font-weight: 900;
+}
+
+.rf_i {
+  white-space: nowrap;
+}
+.rf_god:before {
+  content: "\f521";
+}
+.rf_i:before {
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  line-height: 1;
+  font-size: 0.75em;
+  margin-right: 3px;
+  margin-top: -3px;
+  vertical-align: middle;
+}
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
