@@ -69,7 +69,14 @@ const BlogPostPreview: React.FC<{ postData: PostData }> = ({ postData }) => {
         return (
           <div className="mb-4">
             <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto">
-              <code className="text-sm">{section.content}</code>
+              <code className="text-sm whitespace-pre-wrap break-words">
+                {section.content?.split("\n").map((line, i) => (
+                  <React.Fragment key={i}>
+                    {line}
+                    {"\n"}
+                  </React.Fragment>
+                ))}
+              </code>
             </pre>
           </div>
         );
@@ -166,7 +173,9 @@ const PostCard: React.FC<{
       <div className="p-6">
         <div className="flex items-center mb-4">
           {post.author?.profilePic && (
-            <Image width={40} height={40}
+            <Image
+              width={40}
+              height={40}
               src={post.author.profilePic}
               alt={post.author.username}
               className="w-8 h-8 rounded-full mr-3"

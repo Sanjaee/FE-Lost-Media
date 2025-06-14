@@ -14,6 +14,7 @@ import Image from "next/image";
 import ImageLightbox from "@/components/ImageLightbox";
 import Navbar from "@/components/Navbar";
 import ProfileSidebar from "@/components/ProfileSidebar";
+import React from "react";
 
 // Types for API response
 interface Author {
@@ -57,8 +58,6 @@ interface Post {
   };
 }
 
-
-
 const PostContent = ({ post }: { post: Post }) => {
   const [isLiked, setIsLiked] = useState(false);
 
@@ -79,9 +78,7 @@ const PostContent = ({ post }: { post: Post }) => {
         return (
           <div key={section.sectionId} className="mb-6">
             <div className="text-white leading-relaxed">
-              <div className="mt-2 whitespace-pre-wrap">
-                {section.content}
-              </div>
+              <div className="mt-2 whitespace-pre-wrap">{section.content}</div>
             </div>
           </div>
         );
@@ -89,12 +86,16 @@ const PostContent = ({ post }: { post: Post }) => {
       case "code":
         return (
           <div key={section.sectionId} className="mb-6">
-            <div className="flex items-center mb-2">
-              <Code className="w-4 h-4 text-cyan-400 mr-2" />
-            </div>
             <div className="bg-neutral-900 rounded-lg p-4 overflow-x-auto">
-              <pre className="text-green-400 text-sm">
-                <code>{section.content}</code>
+              <pre className="text-green-400 text-sm whitespace-pre-wrap break-words">
+                <code>
+                  {section.content?.split("\n").map((line, i) => (
+                    <React.Fragment key={i}>
+                      {line}
+                      {"\n"}
+                    </React.Fragment>
+                  ))}
+                </code>
               </pre>
             </div>
           </div>
@@ -110,7 +111,7 @@ const PostContent = ({ post }: { post: Post }) => {
               </span>
             </div>
             <div className="bg-neutral-900 rounded-lg p-4">
-              <div 
+              <div
                 className="text-white"
                 dangerouslySetInnerHTML={{ __html: section.content || "" }}
               />
@@ -136,7 +137,8 @@ const PostContent = ({ post }: { post: Post }) => {
                   className="w-full h-auto max-w-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = "https://via.placeholder.com/400x200?text=Image+Not+Found";
+                    target.src =
+                      "https://via.placeholder.com/400x200?text=Image+Not+Found";
                   }}
                 />
               </div>
@@ -158,11 +160,7 @@ const PostContent = ({ post }: { post: Post }) => {
             </div>
             {section.src && (
               <div className="rounded-lg overflow-hidden bg-neutral-900">
-                <video
-                  controls
-                  className="w-full h-auto"
-                  preload="metadata"
-                >
+                <video controls className="w-full h-auto" preload="metadata">
                   <source src={section.src} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
@@ -216,7 +214,7 @@ const PostContent = ({ post }: { post: Post }) => {
     <div className="bg-neutral-950 p-4 min-h-screen">
       <div className="border-b border-neutral-800 pb-8 last:border-b-0">
         <div className="mb-4">
-          <div className="flex items-center space-x-3 mb-2">
+          <div className="flex items-center space-x-3 mb-6">
             <Image
               width={40}
               height={40}
@@ -225,46 +223,49 @@ const PostContent = ({ post }: { post: Post }) => {
               className="w-10 h-10 rounded-full object-cover"
             />
             <div>
-              <h3 className="text-cyan-400 font-semibold">{post.author.username}</h3>
+              <h3>
+                <span className="rf_owner "></span>
+                <span className="owner">{post.author.username}</span>
+              </h3>
               <div className="flex items-center space-x-2">
                 <Calendar className="w-3 h-3 text-gray-400" />
                 <span className="text-gray-400 text-xs">
-                  {new Date(post.createdAt).toLocaleDateString('id-ID', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
+                  {new Date(post.createdAt).toLocaleDateString("id-ID", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </span>
               </div>
             </div>
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">{post.title}</h2>
-          <p className="text-gray-300 text-sm mb-4">{post.description}</p>
+          <h2 className="text-xl font-bold text-[#e7e7e7] mb-2">{post.title}</h2>
+          <p className="text-[#e7e7e7] text-sm mb-4">{post.description}</p>
         </div>
 
         {/* Main media image */}
         {post.mediaUrl && (
-          <div className="mb-8">
+          <div className="mb-8 flex justify-center">
             <ImageLightbox
-              width={800}
-              height={400}
+              width={1000}
+              height={1000}
               src={post.mediaUrl}
               alt={post.title}
-              className="w-full h-auto rounded-lg shadow-md object-cover max-h-96"
+              className="w-full h-full shadow-md "
             />
           </div>
         )}
 
         {/* Dynamic content sections */}
         {sortedSections.length > 0 ? (
-          <div className="mb-6">
-            {sortedSections.map(renderSection)}
-          </div>
+          <div className="mb-6">{sortedSections.map(renderSection)}</div>
         ) : (
           <div className="mb-6">
-            <p className="text-gray-400 italic">No content sections available</p>
+            <p className="text-gray-400 italic">
+              No content sections available
+            </p>
           </div>
         )}
 
@@ -309,19 +310,19 @@ const ForumLayout = () => {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/posts');
+        const response = await fetch("http://localhost:5000/api/posts");
         const result = await response.json();
-        
+
         if (result.success && result.data) {
           setPosts(result.data);
           if (result.data.length > 0) {
             setCurrentPost(result.data[0]);
           }
         } else {
-          setError('Failed to fetch posts');
+          setError("Failed to fetch posts");
         }
       } catch (err) {
-        setError('Error connecting to API: ' + (err as Error).message);
+        setError("Error connecting to API: " + (err as Error).message);
       } finally {
         setLoading(false);
       }
@@ -338,7 +339,7 @@ const ForumLayout = () => {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const index = parseInt(entry.target.dataset.postIndex || '0', 10);
+            const index = parseInt(entry.target.dataset.postIndex || "0", 10);
             if (posts[index]) {
               setCurrentPost(posts[index]);
             }

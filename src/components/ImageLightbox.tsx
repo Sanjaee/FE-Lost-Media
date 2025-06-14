@@ -28,7 +28,7 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({
     <>
       {/* Thumbnail Image */}
       <div
-        className="relative rounded-lg overflow-hidden shadow-md cursor-pointer"
+        className="relative overflow-hidden shadow-md cursor-pointer"
         onClick={() => setIsOpen(true)}
       >
         <Image
