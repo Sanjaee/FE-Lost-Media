@@ -9,6 +9,8 @@ import {
   Heart,
   MessageCircle,
   Eye,
+  Plus,
+  X,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -18,6 +20,7 @@ interface ContentSection {
   type: "text" | "image" | "code" | "video" | "link" | "html";
   content?: string | null;
   src?: string | null;
+  imageDetail?: string[]; // Array of additional image URLs
   order: number;
 }
 
@@ -56,15 +59,54 @@ const BlogPostPreview: React.FC<{ postData: PostData }> = ({ postData }) => {
           </div>
         );
       case "image":
-        return section.src ? (
+        return (
           <div className="mb-4">
-            <img
-              src={section.src}
-              alt=""
-              className="w-full h-auto rounded-lg shadow-md"
-            />
+            {/* Main image */}
+            {section.src && (
+              <div className="mb-4">
+                <img
+                  src={section.src}
+                  alt="Main image"
+                  className="w-full h-auto rounded-lg shadow-md"
+                />
+              </div>
+            )}
+            {/* Additional images from imageDetail */}
+            {section.imageDetail && section.imageDetail.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                  Additional Images (
+                  {
+                    section.imageDetail.filter(
+                      (url) => url && url.trim() !== ""
+                    ).length
+                  }
+                  ):
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {section.imageDetail
+                    .filter((url) => url && url.trim() !== "") // Filter empty URLs
+                    .map((imageUrl, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={imageUrl}
+                          alt={`Additional image ${index + 1}`}
+                          className="w-full h-auto rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                          onError={(e) => {
+                            // Hide broken images
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
-        ) : null;
+        );
       case "code":
         return (
           <div className="mb-4">
@@ -96,7 +138,7 @@ const BlogPostPreview: React.FC<{ postData: PostData }> = ({ postData }) => {
               href={section.src}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline"
+              className="text-blue-600 hover:text-blue-800 underline break-all"
             >
               {section.src}
             </a>
@@ -161,7 +203,7 @@ const PostCard: React.FC<{
   const isOwner = session?.user?.id === post.author?.userId;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       {post.mediaUrl && (
         <img
           src={post.mediaUrl}
@@ -214,7 +256,7 @@ const PostCard: React.FC<{
                 onClick={() => post.postId && onLike(post.postId)}
                 className={`flex items-center space-x-1 ${
                   post.isLiked ? "text-red-500" : "text-gray-500"
-                } hover:text-red-500`}
+                } hover:text-red-500 transition-colors`}
               >
                 <Heart
                   className={`w-5 h-5 ${post.isLiked ? "fill-current" : ""}`}
@@ -449,9 +491,58 @@ const Post: React.FC<{
         type === "image" || type === "video" || type === "link"
           ? ""
           : undefined,
+      imageDetail: type === "image" ? [""] : undefined, // Initialize with one empty URL for images
       order: contentSections.length,
     };
     setContentSections([...contentSections, newSection]);
+  };
+
+  // Helper functions for managing image details
+  const addImageDetail = (sectionIndex: number) => {
+    const updatedSections = contentSections.map((section, i) => {
+      if (i === sectionIndex && section.type === "image") {
+        return {
+          ...section,
+          imageDetail: [...(section.imageDetail || []), ""],
+        };
+      }
+      return section;
+    });
+    setContentSections(updatedSections);
+  };
+
+  const updateImageDetail = (
+    sectionIndex: number,
+    imageIndex: number,
+    value: string
+  ) => {
+    const updatedSections = contentSections.map((section, i) => {
+      if (i === sectionIndex && section.type === "image") {
+        const newImageDetail = [...(section.imageDetail || [])];
+        newImageDetail[imageIndex] = value;
+        return {
+          ...section,
+          imageDetail: newImageDetail,
+        };
+      }
+      return section;
+    });
+    setContentSections(updatedSections);
+  };
+
+  const removeImageDetail = (sectionIndex: number, imageIndex: number) => {
+    const updatedSections = contentSections.map((section, i) => {
+      if (i === sectionIndex && section.type === "image") {
+        const newImageDetail =
+          section.imageDetail?.filter((_, idx) => idx !== imageIndex) || [];
+        return {
+          ...section,
+          imageDetail: newImageDetail,
+        };
+      }
+      return section;
+    });
+    setContentSections(updatedSections);
   };
 
   const updateContentSection = (
@@ -518,6 +609,8 @@ const Post: React.FC<{
           type: section.type,
           content: section.content || null,
           src: section.src || null,
+          imageDetail:
+            section.imageDetail?.filter((url) => url.trim() !== "") || [],
           order: section.order || index + 1,
         })),
         author: {
@@ -597,13 +690,21 @@ const Post: React.FC<{
     return (
       <div
         key={index}
-        className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 mb-4"
+        className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 mb-4 bg-gray-50 dark:bg-gray-700"
       >
         <div className="flex justify-between items-center mb-3">
-          <h4 className="font-semibold text-gray-700 dark:text-gray-300">
-            {section.type.charAt(0).toUpperCase() + section.type.slice(1)}{" "}
-            Section
-          </h4>
+          <div className="flex items-center space-x-2">
+            <h4 className="font-semibold text-gray-700 dark:text-gray-300">
+              {section.type.charAt(0).toUpperCase() + section.type.slice(1)}{" "}
+              Section
+            </h4>
+            {section.type === "image" && section.imageDetail && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                {section.imageDetail.filter((url) => url.trim() !== "").length}{" "}
+                additional images
+              </span>
+            )}
+          </div>
           <div className="flex space-x-2">
             <Button
               type="button"
@@ -611,6 +712,7 @@ const Post: React.FC<{
               disabled={index === 0}
               variant="outline"
               size="sm"
+              title="Move up"
             >
               ↑
             </Button>
@@ -620,6 +722,7 @@ const Post: React.FC<{
               disabled={index === contentSections.length - 1}
               variant="outline"
               size="sm"
+              title="Move down"
             >
               ↓
             </Button>
@@ -628,6 +731,7 @@ const Post: React.FC<{
               onClick={() => removeContentSection(index)}
               variant="destructive"
               size="sm"
+              title="Remove section"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -643,21 +747,84 @@ const Post: React.FC<{
               updateContentSection(index, { content: e.target.value })
             }
             placeholder={`Enter ${section.type} content...`}
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-vertical min-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-vertical min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={section.type === "code" ? 8 : 4}
           />
         )}
 
-        {(section.type === "image" ||
-          section.type === "video" ||
-          section.type === "link") && (
+        {section.type === "image" && (
+          <div className="space-y-4">
+            {/* Additional images */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Additional Images (
+                  {section.imageDetail?.filter((url) => url.trim() !== "")
+                    .length || 0}
+                  )
+                </label>
+                <Button
+                  type="button"
+                  onClick={() => addImageDetail(index)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Image</span>
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {section.imageDetail &&
+                  section.imageDetail.map((imageUrl, imageIndex) => (
+                    <div key={imageIndex} className="flex gap-2 items-center">
+                      <span className="text-sm text-gray-500 w-8 text-center">
+                        {imageIndex + 1}.
+                      </span>
+                      <input
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) =>
+                          updateImageDetail(index, imageIndex, e.target.value)
+                        }
+                        placeholder={`Additional image ${
+                          imageIndex + 1
+                        } URL...`}
+                        className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => removeImageDetail(index, imageIndex)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        title="Remove image"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+
+              {(!section.imageDetail || section.imageDetail.length === 0) && (
+                <div className="text-center py-4 text-gray-500 text-sm border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                  No additional images added yet. Click "Add Image" to start.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(section.type === "video" || section.type === "link") && (
           <input
+            type="url"
             value={section.src || ""}
             onChange={(e) =>
               updateContentSection(index, { src: e.target.value })
             }
             placeholder={`Enter ${section.type} URL...`}
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         )}
       </div>
@@ -674,7 +841,10 @@ const Post: React.FC<{
 
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400">Loading posts...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="text-gray-600 dark:text-gray-400 mt-4">
+              Loading posts...
+            </p>
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-8">
@@ -716,7 +886,11 @@ const Post: React.FC<{
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
-            <div className="space-y-4">
+            <div className="space-y-4 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Basic Information
+              </h2>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title *
@@ -725,8 +899,8 @@ const Post: React.FC<{
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter post title..."
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
               </div>
@@ -738,8 +912,8 @@ const Post: React.FC<{
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-vertical min-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter post description..."
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-vertical min-h-[100px] bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                 />
               </div>
@@ -752,8 +926,8 @@ const Post: React.FC<{
                   type="text"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Enter category..."
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
@@ -765,18 +939,18 @@ const Post: React.FC<{
                   type="url"
                   value={mediaUrl}
                   onChange={(e) => setMediaUrl(e.target.value)}
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Enter image URL..."
+                  placeholder="Enter featured image URL..."
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             {/* Content Sections */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Content Sections
-                </h3>
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -830,38 +1004,48 @@ const Post: React.FC<{
                 </div>
               </div>
 
-              {contentSections.map((section, index) =>
-                renderContentSectionEditor(section, index)
+              {contentSections.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                  No content sections added yet. Click the buttons above to add
+                  content.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {contentSections.map((section, index) =>
+                    renderContentSectionEditor(section, index)
+                  )}
+                </div>
               )}
             </div>
 
             {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={loading || !session}
-              className="w-full"
-            >
-              {loading
-                ? "Saving..."
-                : mode === "edit"
-                ? "Update Post"
-                : "Create Post"}
-            </Button>
-
-            {!session && (
-              <p className="text-sm text-red-600 text-center">
-                Please sign in to create or edit posts
-              </p>
-            )}
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={loading || !title.trim()}
+                className="px-8 py-3"
+              >
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {mode === "edit" ? "Updating..." : "Creating..."}
+                  </div>
+                ) : (
+                  <>{mode === "edit" ? "Update Post" : "Create Post"}</>
+                )}
+              </Button>
+            </div>
           </form>
         </div>
 
         {/* Preview Section */}
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Preview
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Live Preview
           </h2>
-          <BlogPostPreview postData={currentPostData} />
+          <div className="sticky top-6">
+            <BlogPostPreview postData={currentPostData} />
+          </div>
         </div>
       </div>
     </div>

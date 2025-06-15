@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Code,
   Play,
+  X,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
@@ -26,13 +27,14 @@ interface Author {
 
 interface ContentSection {
   sectionId: string;
-  type: "text" | "code" | "html" | "image" | "video" | "link";
+  type: "text" | "code" | "html" | "video" | "link";
   content: string | null;
   src: string | null;
   order: number;
   postId: string;
   createdAt: string;
   updatedAt: string;
+  imageDetail?: string[];
 }
 
 interface Post {
@@ -60,6 +62,8 @@ interface Post {
 
 const PostContent = ({ post }: { post: Post }) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleLike = () => {
     setIsLiked((prev) => !prev);
@@ -71,6 +75,86 @@ const PostContent = ({ post }: { post: Post }) => {
   const sortedSections = post.sections
     ? [...post.sections].sort((a, b) => a.order - b.order)
     : [];
+
+  const renderGallery = (images: string[]) => {
+    const displayImages = images.slice(0, 3);
+    const remainingCount = images.length - 3;
+
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {displayImages.map((imageUrl, idx) => (
+          <div
+            key={idx}
+            className={`relative rounded-lg overflow-hidden cursor-pointer ${
+              idx === 2 && remainingCount > 0 ? "group" : ""
+            }`}
+          >
+            {idx === 2 && remainingCount > 0 ? (
+              <div
+                className="w-full h-[200px] relative"
+                onClick={() => setShowGallery(true)}
+              >
+                <ImageLightbox
+                  width={400}
+                  height={300}
+                  src={imageUrl}
+                  alt={`Detail Image ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/60 transition-all cursor-pointer">
+                  <span className="text-white text-2xl font-bold">
+                    +{remainingCount}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <ImageLightbox
+                width={400}
+                height={300}
+                src={imageUrl}
+                alt={`Detail Image ${idx + 1}`}
+                className="w-full h-[200px] object-cover hover:scale-105 transition-transform duration-200"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderFullGallery = (images: string[]) => {
+    if (!showGallery) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
+        <button
+          onClick={() => setShowGallery(false)}
+          className="absolute top-4 right-4 text-white hover:text-gray-300"
+        >
+          <X size={32} />
+        </button>
+        <div className="w-full h-full p-8 overflow-y-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-7xl mx-auto mt-7">
+            {images.map((imageUrl, idx) => (
+              <div
+                key={idx}
+                className="relative rounded-lg overflow-hidden cursor-pointer"
+                onClick={() => setCurrentImageIndex(idx)}
+              >
+                <ImageLightbox
+                  width={400}
+                  height={300}
+                  src={imageUrl}
+                  alt={`Gallery Image ${idx + 1}`}
+                  className="w-full h-[200px] object-cover hover:scale-105 transition-transform duration-200"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const renderSection = (section: ContentSection) => {
     switch (section.type) {
@@ -116,36 +200,6 @@ const PostContent = ({ post }: { post: Post }) => {
                 dangerouslySetInnerHTML={{ __html: section.content || "" }}
               />
             </div>
-          </div>
-        );
-
-      case "image":
-        return (
-          <div key={section.sectionId} className="mb-6">
-            <div className="flex items-center mb-2">
-              <span className="text-purple-400 font-bold text-sm">
-                {section.order}. Image
-              </span>
-            </div>
-            {section.src && (
-              <div className="rounded-lg overflow-hidden">
-                <Image
-                  width={800}
-                  height={400}
-                  src={section.src}
-                  alt={`Image ${section.order}`}
-                  className="w-full h-auto max-w-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src =
-                      "https://via.placeholder.com/400x200?text=Image+Not+Found";
-                  }}
-                />
-              </div>
-            )}
-            {section.content && (
-              <p className="text-gray-300 text-sm mt-2">{section.content}</p>
-            )}
           </div>
         );
 
@@ -200,6 +254,17 @@ const PostContent = ({ post }: { post: Post }) => {
         );
 
       default:
+        if (section.imageDetail && section.imageDetail.length > 0) {
+          return (
+            <div key={section.sectionId} className="mb-6">
+              {renderGallery(section.imageDetail)}
+              {renderFullGallery(section.imageDetail)}
+              {section.content && (
+                <p className="text-gray-300 text-sm mt-4">{section.content}</p>
+              )}
+            </div>
+          );
+        }
         return (
           <div key={section.sectionId} className="mb-6">
             <div className="text-gray-400 text-sm">
@@ -241,7 +306,9 @@ const PostContent = ({ post }: { post: Post }) => {
               </div>
             </div>
           </div>
-          <h2 className="text-xl font-bold text-[#e7e7e7] mb-2">{post.title}</h2>
+          <h2 className="text-xl font-bold text-[#e7e7e7] mb-2">
+            {post.title}
+          </h2>
           <p className="text-[#e7e7e7] text-sm mb-4">{post.description}</p>
         </div>
 
@@ -339,7 +406,10 @@ const ForumLayout = () => {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const index = parseInt(entry.target.dataset.postIndex || "0", 10);
+            const index = parseInt(
+              (entry.target as HTMLElement).dataset.postIndex || "0",
+              10
+            );
             if (posts[index]) {
               setCurrentPost(posts[index]);
             }
@@ -394,7 +464,9 @@ const ForumLayout = () => {
         {posts.map((post, index) => (
           <div
             key={post.postId}
-            ref={(el) => (postRefs.current[index] = el)}
+            ref={(el) => {
+              postRefs.current[index] = el;
+            }}
             data-post-index={index}
             className="flex relative"
           >
